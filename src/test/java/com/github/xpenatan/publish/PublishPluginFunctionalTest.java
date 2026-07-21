@@ -38,13 +38,31 @@ class PublishPluginFunctionalTest {
         assertNotNull(findFile(artifactDirectory, name ->
             name.endsWith(".jar") && !name.contains("-sources") && !name.contains("-javadoc")
         ));
+        assertNotNull(findFile(artifactDirectory, name -> name.equals("sample-lib-1.2.3-SNAPSHOT.jar")));
         assertNotNull(findFile(artifactDirectory, name -> name.endsWith("-sources.jar")));
         assertNotNull(findFile(artifactDirectory, name -> name.endsWith("-javadoc.jar")));
+        assertFalse(new File(projectDir, "build/publish-plugin").exists());
 
         String pom = Files.readString(findFile(artifactDirectory, name -> name.endsWith(".pom")).toPath());
         assertTrue(pom.contains("<name>Sample Library</name>"));
         assertTrue(pom.contains("<url>https://github.com/example/sample</url>"));
         assertTrue(pom.contains("<name>Example Developer</name>"));
+    }
+
+    @Test
+    void preparesLiteralSnapshotVersion() throws IOException {
+        writeProject("-SNAPSHOT");
+
+        BuildResult result = runner("prepareSnapshot").build();
+
+        assertEquals(TaskOutcome.SUCCESS, result.task(":prepareSnapshot").getOutcome());
+        File artifactDirectory = new File(
+            projectDir,
+            "build/snapshot-deploy/com/example/sample-lib/-SNAPSHOT"
+        );
+        assertNotNull(findFile(artifactDirectory, name -> name.equals("sample-lib--SNAPSHOT.jar")));
+        assertNotNull(findFile(artifactDirectory, name -> name.equals("sample-lib--SNAPSHOT.pom")));
+        assertFalse(new File(projectDir, "build/publish-plugin").exists());
     }
 
     @Test
@@ -54,6 +72,7 @@ class PublishPluginFunctionalTest {
         BuildResult result = runner("prepareRelease").build();
 
         assertEquals(TaskOutcome.SUCCESS, result.task(":prepareRelease").getOutcome());
+        assertFalse(new File(projectDir, "build/publish-plugin").exists());
         File bundle = new File(projectDir, "build/staging-deploy.zip");
         assertTrue(bundle.isFile());
         try (ZipFile zip = new ZipFile(bundle)) {

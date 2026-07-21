@@ -14,7 +14,6 @@ import org.gradle.api.publish.maven.MavenPublication;
 import org.gradle.api.publish.maven.tasks.PublishToMavenRepository;
 import org.gradle.api.tasks.Delete;
 import org.gradle.api.tasks.GradleBuild;
-import org.gradle.api.tasks.Sync;
 import org.gradle.api.tasks.TaskProvider;
 import org.gradle.api.tasks.bundling.Zip;
 import org.gradle.api.tasks.javadoc.Javadoc;
@@ -55,12 +54,15 @@ public class PublishPlugin implements Plugin<Project> {
         TaskProvider<Delete> cleanSnapshotRoot = project.getTasks().register(
             "cleanSnapshotPublishingStaging",
             Delete.class,
-            task -> task.delete(project.getLayout().getBuildDirectory().dir("publish-plugin/snapshot-root"))
+            task -> task.delete(extension.getSnapshotDirectory())
         );
         TaskProvider<Delete> cleanReleaseRoot = project.getTasks().register(
             "cleanReleasePublishingStaging",
             Delete.class,
-            task -> task.delete(project.getLayout().getBuildDirectory().dir("publish-plugin/release-root"))
+            task -> {
+                task.delete(extension.getReleaseDirectory());
+                task.delete(extension.getReleaseBundle());
+            }
         );
 
         TaskProvider<ValidatePublicationsTask> validateSnapshot = validationTask(
@@ -74,19 +76,29 @@ public class PublishPlugin implements Plugin<Project> {
             true
         );
 
-        TaskProvider<Sync> prepareSnapshot = project.getTasks().register("prepareSnapshot", Sync.class, task -> {
+        TaskProvider<PrepareRepositoryTask> prepareSnapshot = project.getTasks().register(
+            "prepareSnapshot",
+            PrepareRepositoryTask.class,
+            task -> {
             task.setGroup("publishing");
             task.setDescription("Prepares a clean local Maven repository containing all snapshot publications.");
-            task.from(project.getLayout().getBuildDirectory().dir("publish-plugin/snapshot-root"));
-            task.into(extension.getSnapshotDirectory());
-        });
+            task.getDestinationDirectory().set(extension.getSnapshotDirectory());
+            task.getNormalizeSnapshots().set(true);
+            task.dependsOn(cleanSnapshotRoot);
+            }
+        );
 
-        TaskProvider<Sync> assembleRelease = project.getTasks().register("assembleReleaseRepository", Sync.class, task -> {
-            task.setGroup("publishing");
-            task.setDescription("Assembles the staged Maven release repository.");
-            task.from(project.getLayout().getBuildDirectory().dir("publish-plugin/release-root"));
-            task.into(extension.getReleaseDirectory());
-        });
+        TaskProvider<PrepareRepositoryTask> assembleRelease = project.getTasks().register(
+            "assembleReleaseRepository",
+            PrepareRepositoryTask.class,
+            task -> {
+                task.setGroup("publishing");
+                task.setDescription("Assembles the staged Maven release repository.");
+                task.getDestinationDirectory().set(extension.getReleaseDirectory());
+                task.getNormalizeSnapshots().set(false);
+                task.dependsOn(cleanReleaseRoot);
+            }
+        );
 
         TaskProvider<Zip> prepareRelease = project.getTasks().register("prepareRelease", Zip.class, task -> {
             task.setGroup("publishing");
@@ -272,10 +284,10 @@ public class PublishPlugin implements Plugin<Project> {
             repository = repositories.maven(repo -> repo.setName(REPOSITORY_NAME));
         }
         if (releaseRequested) {
-            repository.setUrl(root.getLayout().getBuildDirectory().dir("publish-plugin/release-root"));
+            repository.setUrl(extension.getReleaseDirectory());
         }
         else if (localSnapshotRequested) {
-            repository.setUrl(root.getLayout().getBuildDirectory().dir("publish-plugin/snapshot-root"));
+            repository.setUrl(extension.getSnapshotDirectory());
         }
         else {
             repository.setUrl(extension.getSnapshotRepositoryUrl());
@@ -361,8 +373,8 @@ public class PublishPlugin implements Plugin<Project> {
     private static void configureNestedBuilds(
         Project root,
         PublishExtension extension,
-        TaskProvider<Sync> prepareSnapshot,
-        TaskProvider<Sync> assembleRelease,
+        TaskProvider<PrepareRepositoryTask> prepareSnapshot,
+        TaskProvider<PrepareRepositoryTask> assembleRelease,
         TaskProvider<Task> publishSnapshot
     ) {
         for (NestedBuildSpec nested : extension.getNestedBuilds()) {
@@ -394,11 +406,11 @@ public class PublishPlugin implements Plugin<Project> {
 
             prepareSnapshot.configure(task -> {
                 task.dependsOn(nestedSnapshot);
-                task.from(nested.getSnapshotDirectory());
+                task.getSourceDirectories().from(nested.getSnapshotDirectory());
             });
             assembleRelease.configure(task -> {
                 task.dependsOn(nestedRelease);
-                task.from(nested.getReleaseDirectory());
+                task.getSourceDirectories().from(nested.getReleaseDirectory());
             });
             publishSnapshot.configure(task -> task.dependsOn(nestedPublishSnapshot));
         }
@@ -428,8 +440,8 @@ public class PublishPlugin implements Plugin<Project> {
         TaskProvider<Delete> cleanReleaseRoot,
         TaskProvider<ValidatePublicationsTask> validateSnapshot,
         TaskProvider<ValidatePublicationsTask> validateRelease,
-        TaskProvider<Sync> prepareSnapshot,
-        TaskProvider<Sync> assembleRelease,
+        TaskProvider<PrepareRepositoryTask> prepareSnapshot,
+        TaskProvider<PrepareRepositoryTask> assembleRelease,
         TaskProvider<Task> publishSnapshot
     ) {
         for (Project project : publicationProjects) {
@@ -470,7 +482,7 @@ public class PublishPlugin implements Plugin<Project> {
 
     private static void registerAliases(
         Project project,
-        TaskProvider<Sync> prepareSnapshot,
+        TaskProvider<PrepareRepositoryTask> prepareSnapshot,
         TaskProvider<Zip> prepareRelease,
         TaskProvider<UploadToCentralTask> uploadRelease
     ) {
