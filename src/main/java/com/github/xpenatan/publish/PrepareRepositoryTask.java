@@ -11,10 +11,12 @@ import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
+import org.gradle.work.DisableCachingByDefault;
 
 import javax.inject.Inject;
 
 /** Merges prepared nested repositories into a final publication directory. */
+@DisableCachingByDefault(because = "Merges and normalizes a prepared Maven repository")
 public abstract class PrepareRepositoryTask extends DefaultTask {
     @InputFiles
     @PathSensitive(PathSensitivity.RELATIVE)
