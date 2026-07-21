@@ -28,7 +28,7 @@ val releaseRequested = isTaskRequested(
     "uploadToMavenCentral"
 ) || providers.gradleProperty("release").map(String::toBoolean).getOrElse(false)
 val baseVersion = providers.gradleProperty("version").get().removeSuffix("-SNAPSHOT")
-version = if(releaseRequested) baseVersion else "$baseVersion-SNAPSHOT"
+version = if(releaseRequested) baseVersion else "-SNAPSHOT"
 val publicationVersion = version.toString()
 
 val snapshotDeployDirectory = layout.buildDirectory.dir("snapshot-deploy")
