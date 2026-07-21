@@ -10,6 +10,7 @@ import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
 
 import javax.inject.Inject;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 /** Configuration for the {@code com.github.xpenatan.publish} plugin. */
@@ -46,7 +47,6 @@ public abstract class PublishExtension {
         getSigningPasswordEnvironmentVariable().convention("SIGNING_PASSWORD");
         getAutomaticRelease().convention(false);
         getRequireSigningForUpload().convention(true);
-        getCreateJavaPublications().convention(true);
         getAddJavaDocumentationArtifacts().convention(true);
 
         getSnapshotDirectory().convention(project.getLayout().getBuildDirectory().dir("snapshot-deploy"));
@@ -60,6 +60,13 @@ public abstract class PublishExtension {
     /** Selects projects that contain Maven publications. Defaults to the root project. */
     public void modules(String... projectPaths) {
         getModules().set(Arrays.asList(projectPaths));
+    }
+
+    /** Selects projects from an existing collection, which is convenient for dynamic Kotlin DSL lists. */
+    public void modules(Iterable<String> projectPaths) {
+        ArrayList<String> paths = new ArrayList<>();
+        projectPaths.forEach(paths::add);
+        getModules().set(paths);
     }
 
     public void nestedBuild(String name, Action<? super NestedBuildSpec> action) {
@@ -110,8 +117,6 @@ public abstract class PublishExtension {
 
     public abstract Property<Boolean> getRequireSigningForUpload();
 
-    public abstract Property<Boolean> getCreateJavaPublications();
-
     public abstract Property<Boolean> getAddJavaDocumentationArtifacts();
 
     public abstract DirectoryProperty getSnapshotDirectory();
@@ -122,4 +127,3 @@ public abstract class PublishExtension {
 
     public abstract Property<String> getDeploymentName();
 }
-

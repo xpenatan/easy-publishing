@@ -47,6 +47,9 @@ publishPlugin {
 }
 ```
 
+`modules` accepts either project paths directly or an existing list. Dynamic builds can use
+`modules(publishingModules)` without Kotlin spread or array conversion syntax.
+
 For a single-project build, omit `modules`; the root project is selected automatically.
 
 ```shell

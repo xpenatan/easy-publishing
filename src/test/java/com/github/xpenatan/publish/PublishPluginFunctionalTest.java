@@ -257,8 +257,10 @@ class PublishPluginFunctionalTest {
 
             group = "com.example.kotlin"
             version = "3.0.0-SNAPSHOT"
+            val publishingModules = listOf(":")
 
             publishPlugin {
+                modules(publishingModules)
                 pomName.set("Kotlin DSL Library")
                 pomDescription.set("Configured from Kotlin DSL")
                 projectUrl.set("https://github.com/example/kotlin-lib")
@@ -277,6 +279,70 @@ class PublishPluginFunctionalTest {
             projectDir,
             "build/snapshot-deploy/com/example/kotlin/kotlin-lib/3.0.0-SNAPSHOT"
         ).isDirectory());
+    }
+
+    @Test
+    void configuresGradlePluginPublicationsAutomatically() throws IOException {
+        Files.writeString(
+            new File(projectDir, "settings.gradle.kts").toPath(),
+            "rootProject.name = \"sample-gradle-plugin\"\n"
+        );
+        Files.writeString(new File(projectDir, "build.gradle.kts").toPath(), """
+            plugins {
+                `java-gradle-plugin`
+                id("com.github.xpenatan.publish")
+            }
+
+            group = "com.example"
+            val releaseRequested = extra["publishPlugin.releaseRequested"] as Boolean
+            version = if (releaseRequested) "1.0.0" else "1.0.0-SNAPSHOT"
+
+            gradlePlugin {
+                plugins {
+                    create("sample") {
+                        id = "com.example.sample"
+                        implementationClass = "example.SamplePlugin"
+                    }
+                }
+            }
+
+            publishPlugin {
+                pomName.set("Sample Gradle plugin")
+            }
+            """);
+        File source = new File(projectDir, "src/main/java/example/SamplePlugin.java");
+        Files.createDirectories(source.getParentFile().toPath());
+        Files.writeString(source.toPath(), """
+            package example;
+            import org.gradle.api.Plugin;
+            import org.gradle.api.Project;
+            public class SamplePlugin implements Plugin<Project> {
+                @Override public void apply(Project project) {}
+            }
+            """);
+
+        BuildResult snapshot = runner("prepareSnapshot").build();
+        assertEquals(TaskOutcome.SUCCESS, snapshot.task(":prepareSnapshot").getOutcome());
+        assertTrue(new File(
+            projectDir,
+            "build/snapshot-deploy/com/example/sample-gradle-plugin/1.0.0-SNAPSHOT"
+        ).isDirectory());
+        assertTrue(new File(
+            projectDir,
+            "build/snapshot-deploy/com/example/sample/com.example.sample.gradle.plugin/1.0.0-SNAPSHOT"
+        ).isDirectory());
+
+        BuildResult release = runner("prepareRelease").build();
+        assertEquals(TaskOutcome.SUCCESS, release.task(":prepareRelease").getOutcome());
+        try (ZipFile zip = new ZipFile(new File(projectDir, "build/staging-deploy.zip"))) {
+            assertNotNull(zip.getEntry(
+                "com/example/sample-gradle-plugin/1.0.0/sample-gradle-plugin-1.0.0.jar"
+            ));
+            assertNotNull(zip.getEntry(
+                "com/example/sample/com.example.sample.gradle.plugin/1.0.0/"
+                    + "com.example.sample.gradle.plugin-1.0.0.pom"
+            ));
+        }
     }
 
     private GradleRunner runner(String... arguments) {

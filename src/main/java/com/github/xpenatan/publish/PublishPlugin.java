@@ -271,7 +271,8 @@ public class PublishPlugin implements Plugin<Project> {
         configureJavaArtifacts(project, extension);
         PublishingExtension publishing = project.getExtensions().getByType(PublishingExtension.class);
 
-        if (extension.getCreateJavaPublications().get()
+        boolean gradlePluginProject = project.getPlugins().hasPlugin("java-gradle-plugin");
+        if (!gradlePluginProject
             && publishing.getPublications().withType(MavenPublication.class).isEmpty()) {
             SoftwareComponent javaComponent = project.getComponents().findByName("java");
             if (javaComponent != null) {
@@ -281,15 +282,13 @@ public class PublishPlugin implements Plugin<Project> {
             }
         }
 
-        publishing.getPublications().withType(MavenPublication.class).configureEach(
-            publication -> configurePom(publication.getPom(), extension)
-        );
-        for (MavenPublication publication : publishing.getPublications().withType(MavenPublication.class)) {
+        publishing.getPublications().withType(MavenPublication.class).configureEach(publication -> {
+            configurePom(publication.getPom(), extension);
             String identity = project.getPath() + ":" + publication.getName();
             String version = publication.getVersion();
             validateSnapshot.configure(task -> task.getPublications().put(identity, version));
             validateRelease.configure(task -> task.getPublications().put(identity, version));
-        }
+        });
 
         RepositoryHandler repositories = publishing.getRepositories();
         MavenArtifactRepository repository = (MavenArtifactRepository) repositories.findByName(REPOSITORY_NAME);
