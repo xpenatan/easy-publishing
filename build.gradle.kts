@@ -176,10 +176,15 @@ tasks.register("publishSnapshot") {
     dependsOn(sonatypePublishTasks)
 }
 
-val prepareRelease = tasks.register<Zip>("prepareRelease") {
+val prepareRelease = tasks.register("prepareRelease") {
     group = easyPublishingTaskGroup
-    description = "Prepares a Maven Central release bundle without uploading it."
+    description = "Prepares the plugin release in build/staging-deploy without uploading it."
     dependsOn(sonatypePublishTasks)
+}
+
+val zipReleaseBundle = tasks.register<Zip>("zipReleaseBundle") {
+    description = "Creates the release bundle required by the Sonatype Central Portal."
+    dependsOn(prepareRelease)
     from(releaseDeployDirectory)
     archiveFileName.set("staging-deploy.zip")
     destinationDirectory.set(layout.buildDirectory)
@@ -187,7 +192,7 @@ val prepareRelease = tasks.register<Zip>("prepareRelease") {
 
 val uploadToMavenCentral = tasks.register("uploadToMavenCentral") {
     description = "Uploads the prepared release bundle to the Sonatype Central Portal."
-    dependsOn(prepareRelease)
+    dependsOn(zipReleaseBundle)
     inputs.file(releaseBundle)
     notCompatibleWithConfigurationCache("The release upload performs an authenticated HTTP side effect")
 

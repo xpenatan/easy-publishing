@@ -13,7 +13,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Predicate;
-import java.util.zip.ZipFile;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -59,6 +58,7 @@ class EasyPublishingPluginFunctionalTest {
         assertFalse(output.contains("prepareSnapshotDeploy"));
         assertFalse(output.contains("prepareReleaseDeploy"));
         assertFalse(output.contains("assembleReleaseRepository"));
+        assertFalse(output.contains("zipReleaseBundle"));
         assertFalse(output.contains("validateSnapshotPublication"));
         assertFalse(output.contains("generatePomFileForMavenPublication"));
         assertFalse(output.contains("publishMavenPublicationToEasyPublishingRepository"));
@@ -144,19 +144,22 @@ class EasyPublishingPluginFunctionalTest {
     }
 
     @Test
-    void preparesReleaseBundle() throws IOException {
+    void preparesReleaseRepositoryWithoutCreatingBundle() throws IOException {
         writeProject("1.2.3");
 
         BuildResult result = runner("prepareRelease").build();
 
         assertEquals(TaskOutcome.SUCCESS, result.task(":prepareRelease").getOutcome());
         assertFalse(new File(projectDir, "build/easy-publishing").exists());
-        File bundle = new File(projectDir, "build/staging-deploy.zip");
-        assertTrue(bundle.isFile());
-        try (ZipFile zip = new ZipFile(bundle)) {
-            assertNotNull(zip.getEntry("com/example/sample-lib/1.2.3/sample-lib-1.2.3.jar"));
-            assertNotNull(zip.getEntry("com/example/sample-lib/1.2.3/sample-lib-1.2.3.pom"));
-        }
+        assertTrue(new File(
+            projectDir,
+            "build/staging-deploy/com/example/sample-lib/1.2.3/sample-lib-1.2.3.jar"
+        ).isFile());
+        assertTrue(new File(
+            projectDir,
+            "build/staging-deploy/com/example/sample-lib/1.2.3/sample-lib-1.2.3.pom"
+        ).isFile());
+        assertFalse(new File(projectDir, "build/staging-deploy.zip").exists());
     }
 
     @Test
@@ -219,7 +222,11 @@ class EasyPublishingPluginFunctionalTest {
 
         BuildResult prepared = runner("prepareRelease").build();
         assertEquals(TaskOutcome.SUCCESS, prepared.task(":prepareRelease").getOutcome());
-        assertTrue(new File(projectDir, "build/staging-deploy.zip").isFile());
+        assertTrue(new File(
+            projectDir,
+            "build/staging-deploy/com/example/sample-lib/1.2.3/sample-lib-1.2.3.jar"
+        ).isFile());
+        assertFalse(new File(projectDir, "build/staging-deploy.zip").exists());
 
         BuildResult published = runner("publishRelease").build();
         assertEquals(TaskOutcome.SUCCESS, published.task(":publishRelease").getOutcome());
@@ -228,6 +235,8 @@ class EasyPublishingPluginFunctionalTest {
             published.task(":publishMavenPublicationToEasyPublishingReleaseRepository").getOutcome()
         );
         assertTrue(published.task(":uploadReleaseToMavenCentral") == null);
+        assertTrue(published.task(":zipReleaseBundle") == null);
+        assertFalse(new File(projectDir, "build/staging-deploy.zip").exists());
         assertTrue(new File(
             projectDir,
             "remote-releases/com/example/sample-lib/1.2.3/sample-lib-1.2.3.jar"
@@ -269,6 +278,7 @@ class EasyPublishingPluginFunctionalTest {
         BuildResult result = runner("publishRelease", "--dry-run").build();
 
         assertTrue(result.getOutput().contains(":prepareRelease SKIPPED"));
+        assertTrue(result.getOutput().contains(":zipReleaseBundle SKIPPED"));
         assertTrue(result.getOutput().contains(":uploadReleaseToMavenCentral SKIPPED"));
         assertTrue(result.getOutput().contains(":publishRelease SKIPPED"));
         assertFalse(result.getOutput().contains("ToEasyPublishingReleaseRepository"));
@@ -294,6 +304,8 @@ class EasyPublishingPluginFunctionalTest {
 
         assertTrue(result.getOutput().contains("easyPublishing.signingKey must be configured"));
         assertFalse(result.getOutput().contains("environment variable"));
+        assertEquals(TaskOutcome.SUCCESS, result.task(":zipReleaseBundle").getOutcome());
+        assertTrue(new File(projectDir, "build/staging-deploy.zip").isFile());
     }
 
     @Test
@@ -357,11 +369,11 @@ class EasyPublishingPluginFunctionalTest {
 
         BuildResult release = runner("prepareRelease").build();
         assertEquals(TaskOutcome.SUCCESS, release.task(":prepareRelease").getOutcome());
-        try (ZipFile zip = new ZipFile(new File(projectDir, "build/staging-deploy.zip"))) {
-            assertNotNull(zip.getEntry(
-                "com/example/multi/custom-artifact/2.0.0/custom-artifact-2.0.0.jar"
-            ));
-        }
+        assertTrue(new File(
+            projectDir,
+            "build/staging-deploy/com/example/multi/custom-artifact/2.0.0/custom-artifact-2.0.0.jar"
+        ).isFile());
+        assertFalse(new File(projectDir, "build/staging-deploy.zip").exists());
     }
 
     @Test
@@ -427,9 +439,11 @@ class EasyPublishingPluginFunctionalTest {
 
         BuildResult release = runner("prepareRelease").build();
         assertEquals(TaskOutcome.SUCCESS, release.task(":prepareToolRelease").getOutcome());
-        try (ZipFile zip = new ZipFile(new File(projectDir, "build/staging-deploy.zip"))) {
-            assertNotNull(zip.getEntry("com/example/tool/1.0/tool.jar"));
-        }
+        assertTrue(new File(
+            projectDir,
+            "build/staging-deploy/com/example/tool/1.0/tool.jar"
+        ).isFile());
+        assertFalse(new File(projectDir, "build/staging-deploy.zip").exists());
 
         BuildResult published = runner("publishRelease").build();
         assertEquals(TaskOutcome.SUCCESS, published.task(":publishToolRelease").getOutcome());
@@ -533,15 +547,17 @@ class EasyPublishingPluginFunctionalTest {
 
         BuildResult release = runner("prepareRelease").build();
         assertEquals(TaskOutcome.SUCCESS, release.task(":prepareRelease").getOutcome());
-        try (ZipFile zip = new ZipFile(new File(projectDir, "build/staging-deploy.zip"))) {
-            assertNotNull(zip.getEntry(
-                "com/example/sample-gradle-plugin/1.0.0/sample-gradle-plugin-1.0.0.jar"
-            ));
-            assertNotNull(zip.getEntry(
-                "com/example/sample/com.example.sample.gradle.plugin/1.0.0/"
-                    + "com.example.sample.gradle.plugin-1.0.0.pom"
-            ));
-        }
+        assertTrue(new File(
+            projectDir,
+            "build/staging-deploy/com/example/sample-gradle-plugin/1.0.0/"
+                + "sample-gradle-plugin-1.0.0.jar"
+        ).isFile());
+        assertTrue(new File(
+            projectDir,
+            "build/staging-deploy/com/example/sample/com.example.sample.gradle.plugin/1.0.0/"
+                + "com.example.sample.gradle.plugin-1.0.0.pom"
+        ).isFile());
+        assertFalse(new File(projectDir, "build/staging-deploy.zip").exists());
 
         BuildResult published = runner("publishRelease").build();
         assertEquals(TaskOutcome.SUCCESS, published.task(":publishRelease").getOutcome());

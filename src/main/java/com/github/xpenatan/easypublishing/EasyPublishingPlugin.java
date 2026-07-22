@@ -111,21 +111,21 @@ public class EasyPublishingPlugin implements Plugin<Project> {
             }
         );
 
-        TaskProvider<PrepareRepositoryTask> assembleRelease = project.getTasks().register(
-            "assembleReleaseRepository",
+        TaskProvider<PrepareRepositoryTask> prepareRelease = project.getTasks().register(
+            "prepareRelease",
             PrepareRepositoryTask.class,
             task -> {
-                task.setDescription("Assembles the staged Maven release repository.");
+                task.setGroup(TASK_GROUP);
+                task.setDescription("Prepares a clean local Maven repository containing all release publications.");
                 task.getDestinationDirectory().set(extension.getReleaseDirectory());
                 task.getNormalizeSnapshots().set(false);
                 task.dependsOn(cleanReleaseRoot);
             }
         );
 
-        TaskProvider<Zip> prepareRelease = project.getTasks().register("prepareRelease", Zip.class, task -> {
-            task.setGroup(TASK_GROUP);
-            task.setDescription("Prepares and zips a local Maven release repository without uploading it.");
-            task.dependsOn(assembleRelease);
+        TaskProvider<Zip> zipReleaseBundle = project.getTasks().register("zipReleaseBundle", Zip.class, task -> {
+            task.setDescription("Creates the release bundle required by the Central Publisher Portal.");
+            task.dependsOn(prepareRelease);
             task.from(extension.getReleaseDirectory());
         });
 
@@ -139,7 +139,7 @@ public class EasyPublishingPlugin implements Plugin<Project> {
             UploadToCentralTask.class,
             task -> {
                 task.setDescription("Uploads the prepared release bundle to the Central Publisher Portal.");
-                task.dependsOn(prepareRelease);
+                task.dependsOn(zipReleaseBundle);
                 task.getBundleFile().set(extension.getReleaseBundle());
                 task.getReleaseRepositoryUrl().set(extension.getReleaseRepositoryUrl());
                 task.getDeploymentName().set(extension.getDeploymentName());
@@ -158,7 +158,7 @@ public class EasyPublishingPlugin implements Plugin<Project> {
         });
 
         project.afterEvaluate(ignored -> {
-            configureReleaseArchive(prepareRelease, extension);
+            configureReleaseArchive(zipReleaseBundle, extension);
             String releaseRepositoryUrl = extension.getReleaseRepositoryUrl().getOrElse("");
             boolean centralRelease = isCentralPortalUrl(releaseRepositoryUrl);
             boolean directRelease = notBlank(releaseRepositoryUrl) && !centralRelease;
@@ -228,7 +228,7 @@ public class EasyPublishingPlugin implements Plugin<Project> {
                 project,
                 extension,
                 prepareSnapshot,
-                assembleRelease,
+                prepareRelease,
                 publishSnapshot,
                 publishRelease,
                 directRelease
@@ -244,7 +244,7 @@ public class EasyPublishingPlugin implements Plugin<Project> {
                 validateSnapshot,
                 validateRelease,
                 prepareSnapshot,
-                assembleRelease,
+                prepareRelease,
                 publishSnapshot,
                 publishRelease
             );
@@ -467,7 +467,7 @@ public class EasyPublishingPlugin implements Plugin<Project> {
         Project root,
         EasyPublishingExtension extension,
         TaskProvider<PrepareRepositoryTask> prepareSnapshot,
-        TaskProvider<PrepareRepositoryTask> assembleRelease,
+        TaskProvider<PrepareRepositoryTask> prepareRelease,
         TaskProvider<Task> publishSnapshot,
         TaskProvider<Task> publishRelease,
         boolean directRelease
@@ -525,7 +525,7 @@ public class EasyPublishingPlugin implements Plugin<Project> {
                 task.dependsOn(nestedSnapshot);
                 task.getSourceDirectories().from(nested.getSnapshotDirectory());
             });
-            assembleRelease.configure(task -> {
+            prepareRelease.configure(task -> {
                 task.dependsOn(nestedRelease);
                 task.getSourceDirectories().from(nested.getReleaseDirectory());
             });
@@ -606,7 +606,7 @@ public class EasyPublishingPlugin implements Plugin<Project> {
         TaskProvider<ValidatePublicationsTask> validateSnapshot,
         TaskProvider<ValidatePublicationsTask> validateRelease,
         TaskProvider<PrepareRepositoryTask> prepareSnapshot,
-        TaskProvider<PrepareRepositoryTask> assembleRelease,
+        TaskProvider<PrepareRepositoryTask> prepareRelease,
         TaskProvider<Task> publishSnapshot,
         TaskProvider<Task> publishRelease
     ) {
@@ -622,7 +622,7 @@ public class EasyPublishingPlugin implements Plugin<Project> {
             if (releaseRequested) {
                 stagingTasks.configureEach(task -> task.dependsOn(cleanReleaseRoot, validateRelease));
                 directReleaseTasks.configureEach(task -> task.dependsOn(validateRelease));
-                assembleRelease.configure(aggregate -> aggregate.dependsOn(stagingTasks));
+                prepareRelease.configure(aggregate -> aggregate.dependsOn(stagingTasks));
                 publishRelease.configure(aggregate -> aggregate.dependsOn(directReleaseTasks));
             }
             else if (localSnapshotRequested) {
@@ -637,11 +637,11 @@ public class EasyPublishingPlugin implements Plugin<Project> {
     }
 
     private static void configureReleaseArchive(
-        TaskProvider<Zip> prepareRelease,
+        TaskProvider<Zip> zipReleaseBundle,
         EasyPublishingExtension extension
     ) {
         File bundle = extension.getReleaseBundle().get().getAsFile();
-        prepareRelease.configure(task -> {
+        zipReleaseBundle.configure(task -> {
             task.getDestinationDirectory().set(bundle.getParentFile());
             task.getArchiveFileName().set(bundle.getName());
         });

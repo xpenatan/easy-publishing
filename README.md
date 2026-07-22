@@ -74,7 +74,7 @@ For a single-project build, omit `modules`; the root project is selected automat
 ```shell
 ./gradlew prepareSnapshot  # Create build/snapshot-deploy
 ./gradlew publishSnapshot  # Publish the snapshot
-./gradlew prepareRelease   # Create build/staging-deploy.zip
+./gradlew prepareRelease   # Create build/staging-deploy
 ./gradlew publishRelease   # Publish the release to the configured provider
 ```
 
@@ -110,7 +110,10 @@ repository, also set `allowInsecureProtocol.set(true)`.
 `https://central.sonatype.com`, EasyPublishing uses the Maven Central Portal ZIP workflow.
 Every other release URL is treated as a Maven-compatible repository and receives the POM,
 JARs, Gradle metadata, signatures, and checksums directly through Gradle's Maven publisher.
-`prepareRelease` always creates `build/staging-deploy.zip` without uploading anything.
+`prepareRelease` creates the `build/staging-deploy` repository directory without uploading or
+creating an archive. For Maven Central only, `publishRelease` creates
+`build/staging-deploy.zip` internally immediately before uploading it. Direct Maven-repository
+releases do not create a ZIP.
 
 `publishSnapshot` requires `snapshotRepositoryUrl`. The local-only `prepareSnapshot` and
 `prepareRelease` tasks do not require a remote provider.
