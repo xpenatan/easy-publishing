@@ -125,6 +125,55 @@ class EasyPublishingPluginFunctionalTest {
     }
 
     @Test
+    void appliesGroupIdOnlyToMavenPublication() throws IOException {
+        Files.writeString(new File(projectDir, "settings.gradle").toPath(), """
+            rootProject.name = 'publication-group-test'
+            include 'library'
+            """);
+        Files.writeString(new File(projectDir, "build.gradle").toPath(), """
+            plugins {
+                id 'com.github.xpenatan.easy-publishing'
+            }
+
+            easyPublishing {
+                modules ':library'
+                groupId = 'com.example.published'
+                releaseVersion = '1.2.3'
+                snapshotVersion = '1.2.3-SNAPSHOT'
+            }
+            """);
+
+        File libraryDirectory = new File(projectDir, "library");
+        Files.createDirectories(libraryDirectory.toPath());
+        Files.writeString(new File(libraryDirectory, "build.gradle").toPath(), """
+            plugins {
+                id 'java-library'
+            }
+
+            publishing {
+                publications {
+                    custom(MavenPublication) {
+                        from components.java
+                    }
+                }
+            }
+
+            afterEvaluate {
+                assert project.group.toString() == 'publication-group-test'
+                assert publishing.publications.custom.groupId == 'com.example.published'
+            }
+
+            tasks.register('verifyCoordinates') {
+                doLast { }
+            }
+            """);
+
+        BuildResult result = runner(":library:verifyCoordinates").build();
+
+        assertEquals(TaskOutcome.SUCCESS, result.task(":library:verifyCoordinates").getOutcome());
+    }
+
+    @Test
     void preparesSnapshotRepositoryAndPom() throws IOException {
         writeProject("1.2.3", "1.2.3-SNAPSHOT");
 

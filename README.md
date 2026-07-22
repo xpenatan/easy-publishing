@@ -54,8 +54,9 @@ easyPublishing {
 
 `modules` accepts either project paths directly or an existing list. Dynamic builds can use
 `modules(publishingModules)` without Kotlin spread or array conversion syntax.
-EasyPublishing assigns `groupId` and the selected lifecycle version to the selected projects; no root
-`allprojects` coordinate block is needed.
+EasyPublishing assigns `groupId` directly to each Maven publication without changing
+`Project.group`. It assigns the selected lifecycle version to the selected projects, so no root
+`allprojects` version block is needed.
 
 `releaseVersion` is always the release version and must not end with `-SNAPSHOT`.
 `snapshotVersion` is always the snapshot version. Both snapshot forms are supported:

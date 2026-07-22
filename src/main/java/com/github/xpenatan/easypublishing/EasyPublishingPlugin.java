@@ -200,7 +200,6 @@ public class EasyPublishingPlugin implements Plugin<Project> {
             );
             String publicationVersion = releaseRequested ? releaseVersion : snapshotVersion;
             for (Project publicationProject : publicationProjects) {
-                publicationProject.setGroup(groupId);
                 publicationProject.setVersion(publicationVersion);
                 if (publicationProject == project || publicationProject.getState().getExecuted()) {
                     publicationProject.getPluginManager().apply("maven-publish");
@@ -209,6 +208,7 @@ public class EasyPublishingPlugin implements Plugin<Project> {
                         publicationProject,
                         project,
                         extension,
+                        groupId,
                         releaseRequested,
                         localSnapshotRequested,
                         publishSnapshotRequested,
@@ -222,6 +222,7 @@ public class EasyPublishingPlugin implements Plugin<Project> {
                         child,
                         project,
                         extension,
+                        groupId,
                         releaseRequested,
                         localSnapshotRequested,
                         publishSnapshotRequested,
@@ -326,6 +327,7 @@ public class EasyPublishingPlugin implements Plugin<Project> {
         Project project,
         Project root,
         EasyPublishingExtension extension,
+        String groupId,
         boolean releaseRequested,
         boolean localSnapshotRequested,
         boolean publishSnapshotRequested,
@@ -348,6 +350,7 @@ public class EasyPublishingPlugin implements Plugin<Project> {
         }
 
         publishing.getPublications().withType(MavenPublication.class).configureEach(publication -> {
+            publication.setGroupId(groupId);
             configurePom(publication.getPom(), extension);
             String identity = project.getPath() + ":" + publication.getName();
             String version = publication.getVersion();
