@@ -40,6 +40,10 @@ val publicationVersion = version.toString()
 val snapshotDeployDirectory = layout.buildDirectory.dir("snapshot-deploy")
 val releaseDeployDirectory = layout.buildDirectory.dir("staging-deploy")
 val releaseBundle = layout.buildDirectory.file("staging-deploy.zip")
+val repositoryUsername = providers.environmentVariable("CENTRAL_PORTAL_USERNAME")
+val repositoryPassword = providers.environmentVariable("CENTRAL_PORTAL_PASSWORD")
+val signingKey = providers.environmentVariable("SIGNING_KEY")
+val signingPassword = providers.environmentVariable("SIGNING_PASSWORD")
 
 repositories {
     mavenCentral()
@@ -97,8 +101,8 @@ publishing {
 
             if(!releaseRequested && !prepareSnapshotRequested) {
                 credentials {
-                    username = providers.environmentVariable("CENTRAL_PORTAL_USERNAME").orNull
-                    password = providers.environmentVariable("CENTRAL_PORTAL_PASSWORD").orNull
+                    username = repositoryUsername.orNull
+                    password = repositoryPassword.orNull
                 }
             }
         }
@@ -130,11 +134,11 @@ publishing {
     }
 }
 
-val signingKey = providers.environmentVariable("SIGNING_KEY").orNull
-val signingPassword = providers.environmentVariable("SIGNING_PASSWORD").orNull
-if(!signingKey.isNullOrBlank() && !signingPassword.isNullOrBlank()) {
+val signingKeyValue = signingKey.orNull
+val signingPasswordValue = signingPassword.orNull
+if(!signingKeyValue.isNullOrBlank() && !signingPasswordValue.isNullOrBlank()) {
     signing {
-        useInMemoryPgpKeys(signingKey, signingPassword)
+        useInMemoryPgpKeys(signingKeyValue, signingPasswordValue)
         sign(publishing.publications)
     }
 }
@@ -191,14 +195,14 @@ val uploadToMavenCentral = tasks.register("uploadToMavenCentral") {
         val bundle = releaseBundle.get().asFile
         check(bundle.isFile && bundle.canRead()) { "Release bundle is missing or unreadable: $bundle" }
 
-        val username = System.getenv("CENTRAL_PORTAL_USERNAME")
+        val username = repositoryUsername.orNull?.takeIf { it.isNotBlank() }
             ?: error("CENTRAL_PORTAL_USERNAME environment variable is not set")
-        val password = System.getenv("CENTRAL_PORTAL_PASSWORD")
+        val password = repositoryPassword.orNull?.takeIf { it.isNotBlank() }
             ?: error("CENTRAL_PORTAL_PASSWORD environment variable is not set")
-        check(!System.getenv("SIGNING_KEY").isNullOrBlank()) {
+        check(!signingKey.orNull.isNullOrBlank()) {
             "SIGNING_KEY environment variable is not set"
         }
-        check(!System.getenv("SIGNING_PASSWORD").isNullOrBlank()) {
+        check(!signingPassword.orNull.isNullOrBlank()) {
             "SIGNING_PASSWORD environment variable is not set"
         }
 

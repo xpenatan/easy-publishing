@@ -43,14 +43,6 @@ public class EasyPublishingPlugin implements Plugin<Project> {
     private static final String VERSION_PROPERTY = "easyPublishing.version";
     private static final String SNAPSHOT_REPOSITORY_URL_PROPERTY = "easyPublishing.snapshotRepositoryUrl";
     private static final String RELEASE_REPOSITORY_URL_PROPERTY = "easyPublishing.releaseRepositoryUrl";
-    private static final String USERNAME_ENVIRONMENT_PROPERTY =
-        "easyPublishing.usernameEnvironmentVariable";
-    private static final String PASSWORD_ENVIRONMENT_PROPERTY =
-        "easyPublishing.passwordEnvironmentVariable";
-    private static final String SIGNING_KEY_ENVIRONMENT_PROPERTY =
-        "easyPublishing.signingKeyEnvironmentVariable";
-    private static final String SIGNING_PASSWORD_ENVIRONMENT_PROPERTY =
-        "easyPublishing.signingPasswordEnvironmentVariable";
     private static final String ALLOW_INSECURE_PROTOCOL_PROPERTY =
         "easyPublishing.allowInsecureProtocol";
     private static final Set<String> PUBLIC_TASK_NAMES = Set.of(
@@ -152,10 +144,10 @@ public class EasyPublishingPlugin implements Plugin<Project> {
                 task.getReleaseRepositoryUrl().set(extension.getReleaseRepositoryUrl());
                 task.getDeploymentName().set(extension.getDeploymentName());
                 task.getAutomaticRelease().set(extension.getAutomaticRelease());
-                task.getUsernameEnvironmentVariable().set(extension.getUsernameEnvironmentVariable());
-                task.getPasswordEnvironmentVariable().set(extension.getPasswordEnvironmentVariable());
-                task.getSigningKeyEnvironmentVariable().set(extension.getSigningKeyEnvironmentVariable());
-                task.getSigningPasswordEnvironmentVariable().set(extension.getSigningPasswordEnvironmentVariable());
+                task.getUsername().set(extension.getUsername());
+                task.getPassword().set(extension.getPassword());
+                task.getSigningKey().set(extension.getSigningKey());
+                task.getSigningPassword().set(extension.getSigningPassword());
                 task.getRequireSigning().set(extension.getRequireSigningForUpload());
             }
         );
@@ -444,10 +436,8 @@ public class EasyPublishingPlugin implements Plugin<Project> {
         PublishingExtension publishing,
         EasyPublishingExtension extension
     ) {
-        String key = environmentVariable(extension.getSigningKeyEnvironmentVariable().getOrElse(""));
-        String password = environmentVariable(
-            extension.getSigningPasswordEnvironmentVariable().getOrElse("")
-        );
+        String key = extension.getSigningKey().getOrElse("");
+        String password = extension.getSigningPassword().getOrElse("");
         if (notBlank(key) && notBlank(password)) {
             SigningExtension signing = project.getExtensions().getByType(SigningExtension.class);
             signing.useInMemoryPgpKeys(key, password);
@@ -463,8 +453,8 @@ public class EasyPublishingPlugin implements Plugin<Project> {
         repository.setUrl(url);
         repository.setAllowInsecureProtocol(extension.getAllowInsecureProtocol().get());
 
-        String username = environmentVariable(extension.getUsernameEnvironmentVariable().getOrElse(""));
-        String password = environmentVariable(extension.getPasswordEnvironmentVariable().getOrElse(""));
+        String username = extension.getUsername().getOrElse("");
+        String password = extension.getPassword().getOrElse("");
         if (notBlank(username) && notBlank(password)) {
             repository.credentials(credentials -> {
                 credentials.setUsername(username);
@@ -550,7 +540,7 @@ public class EasyPublishingPlugin implements Plugin<Project> {
         var properties = new java.util.LinkedHashMap<>(task.getStartParameter().getProjectProperties());
         addNestedCoordinateProperties(properties, extension);
         properties.put(SNAPSHOT_REPOSITORY_URL_PROPERTY, extension.getSnapshotRepositoryUrl().getOrElse(""));
-        addNestedCredentialProperties(properties, extension);
+        addNestedRepositoryProperties(properties, extension);
         task.getStartParameter().setProjectProperties(properties);
     }
 
@@ -561,7 +551,7 @@ public class EasyPublishingPlugin implements Plugin<Project> {
         var properties = new java.util.LinkedHashMap<>(task.getStartParameter().getProjectProperties());
         addNestedCoordinateProperties(properties, extension);
         properties.put(RELEASE_REPOSITORY_URL_PROPERTY, extension.getReleaseRepositoryUrl().getOrElse(""));
-        addNestedCredentialProperties(properties, extension);
+        addNestedRepositoryProperties(properties, extension);
         task.getStartParameter().setProjectProperties(properties);
     }
 
@@ -582,26 +572,10 @@ public class EasyPublishingPlugin implements Plugin<Project> {
         properties.put(VERSION_PROPERTY, extension.getVersion().getOrElse(""));
     }
 
-    private static void addNestedCredentialProperties(
+    private static void addNestedRepositoryProperties(
         java.util.Map<String, String> properties,
         EasyPublishingExtension extension
     ) {
-        properties.put(
-            USERNAME_ENVIRONMENT_PROPERTY,
-            extension.getUsernameEnvironmentVariable().getOrElse("")
-        );
-        properties.put(
-            PASSWORD_ENVIRONMENT_PROPERTY,
-            extension.getPasswordEnvironmentVariable().getOrElse("")
-        );
-        properties.put(
-            SIGNING_KEY_ENVIRONMENT_PROPERTY,
-            extension.getSigningKeyEnvironmentVariable().getOrElse("")
-        );
-        properties.put(
-            SIGNING_PASSWORD_ENVIRONMENT_PROPERTY,
-            extension.getSigningPasswordEnvironmentVariable().getOrElse("")
-        );
         properties.put(
             ALLOW_INSECURE_PROTOCOL_PROPERTY,
             extension.getAllowInsecureProtocol().get().toString()
@@ -717,10 +691,6 @@ public class EasyPublishingPlugin implements Plugin<Project> {
             throw new GradleException(message);
         }
         return value;
-    }
-
-    private static String environmentVariable(String name) {
-        return notBlank(name) ? System.getenv(name) : null;
     }
 
     private static void setIfNotBlank(org.gradle.api.provider.Property<String> property, String value) {

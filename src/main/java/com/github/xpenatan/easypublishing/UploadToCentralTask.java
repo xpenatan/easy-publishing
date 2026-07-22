@@ -39,32 +39,20 @@ public abstract class UploadToCentralTask extends DefaultTask {
     @Input
     public abstract Property<Boolean> getAutomaticRelease();
 
-    @Input
-    public abstract Property<String> getUsernameEnvironmentVariable();
+    @Internal
+    public abstract Property<String> getUsername();
 
-    @Input
-    public abstract Property<String> getPasswordEnvironmentVariable();
+    @Internal
+    public abstract Property<String> getPassword();
 
-    @Input
-    public abstract Property<String> getSigningKeyEnvironmentVariable();
+    @Internal
+    public abstract Property<String> getSigningKey();
 
-    @Input
-    public abstract Property<String> getSigningPasswordEnvironmentVariable();
+    @Internal
+    public abstract Property<String> getSigningPassword();
 
     @Input
     public abstract Property<Boolean> getRequireSigning();
-
-    @Internal
-    protected String getUsername() {
-        String name = getUsernameEnvironmentVariable().getOrElse("");
-        return name.isBlank() ? null : System.getenv(name);
-    }
-
-    @Internal
-    protected String getPassword() {
-        String name = getPasswordEnvironmentVariable().getOrElse("");
-        return name.isBlank() ? null : System.getenv(name);
-    }
 
     @TaskAction
     public void upload() throws Exception {
@@ -77,25 +65,11 @@ public abstract class UploadToCentralTask extends DefaultTask {
             getReleaseRepositoryUrl().getOrElse(""),
             "easyPublishing.releaseRepositoryUrl"
         );
-        String usernameVariable = requireConfigured(
-            getUsernameEnvironmentVariable().getOrElse(""),
-            "easyPublishing.usernameEnvironmentVariable"
-        );
-        String passwordVariable = requireConfigured(
-            getPasswordEnvironmentVariable().getOrElse(""),
-            "easyPublishing.passwordEnvironmentVariable"
-        );
-        String username = requireEnvironmentVariable(usernameVariable);
-        String password = requireEnvironmentVariable(passwordVariable);
+        String username = requireConfigured(getUsername().getOrElse(""), "easyPublishing.username");
+        String password = requireConfigured(getPassword().getOrElse(""), "easyPublishing.password");
         if (getRequireSigning().get()) {
-            requireEnvironmentVariable(requireConfigured(
-                getSigningKeyEnvironmentVariable().getOrElse(""),
-                "easyPublishing.signingKeyEnvironmentVariable"
-            ));
-            requireEnvironmentVariable(requireConfigured(
-                getSigningPasswordEnvironmentVariable().getOrElse(""),
-                "easyPublishing.signingPasswordEnvironmentVariable"
-            ));
+            requireConfigured(getSigningKey().getOrElse(""), "easyPublishing.signingKey");
+            requireConfigured(getSigningPassword().getOrElse(""), "easyPublishing.signingPassword");
         }
 
         String publishingType = getAutomaticRelease().get() ? "AUTOMATIC" : "USER_MANAGED";
@@ -141,14 +115,6 @@ public abstract class UploadToCentralTask extends DefaultTask {
             response.body().trim(),
             publishingType
         );
-    }
-
-    private static String requireEnvironmentVariable(String name) {
-        String value = System.getenv(name);
-        if (value == null || value.isBlank()) {
-            throw new GradleException(name + " environment variable is not set");
-        }
-        return value;
     }
 
     private static String requireConfigured(String value, String propertyName) {

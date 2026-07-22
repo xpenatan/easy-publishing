@@ -34,10 +34,10 @@ easyPublishing {
 
     snapshotRepositoryUrl.set("https://central.sonatype.com/repository/maven-snapshots/")
     releaseRepositoryUrl.set("https://central.sonatype.com")
-    usernameEnvironmentVariable.set("CENTRAL_PORTAL_USERNAME")
-    passwordEnvironmentVariable.set("CENTRAL_PORTAL_PASSWORD")
-    signingKeyEnvironmentVariable.set("SIGNING_KEY")
-    signingPasswordEnvironmentVariable.set("SIGNING_PASSWORD")
+    username.set(providers.environmentVariable("CENTRAL_PORTAL_USERNAME"))
+    password.set(providers.environmentVariable("CENTRAL_PORTAL_PASSWORD"))
+    signingKey.set(providers.environmentVariable("SIGNING_KEY"))
+    signingPassword.set(providers.environmentVariable("SIGNING_PASSWORD"))
 
     pomName.set("Example Library")
     pomDescription.set("An example Java library")
@@ -79,10 +79,11 @@ For a single-project build, omit `modules`; the root project is selected automat
 ```
 
 EasyPublishing does not select Sonatype or any other provider by default. For Maven Central,
-configure `snapshotRepositoryUrl` and `releaseRepositoryUrl` explicitly, together with the names
-of the environment variables that contain the credentials and signing material. The example
-above reads `CENTRAL_PORTAL_USERNAME`, `CENTRAL_PORTAL_PASSWORD`, `SIGNING_KEY`, and
-`SIGNING_PASSWORD` from the environment.
+configure `snapshotRepositoryUrl` and `releaseRepositoryUrl` explicitly. Credential and signing
+properties contain their actual values; EasyPublishing does not inspect environment variables.
+The example asks Gradle's Provider API to read `CENTRAL_PORTAL_USERNAME`,
+`CENTRAL_PORTAL_PASSWORD`, `SIGNING_KEY`, and `SIGNING_PASSWORD` and pass their values to the
+plugin.
 
 ## Other Maven Repositories
 
@@ -95,8 +96,8 @@ easyPublishing {
     snapshotRepositoryUrl.set("https://packages.example.com/maven/snapshots")
     releaseRepositoryUrl.set("https://packages.example.com/maven/releases")
 
-    usernameEnvironmentVariable.set("MAVEN_REPOSITORY_USERNAME")
-    passwordEnvironmentVariable.set("MAVEN_REPOSITORY_TOKEN")
+    username.set(providers.environmentVariable("MAVEN_REPOSITORY_USERNAME"))
+    password.set(providers.environmentVariable("MAVEN_REPOSITORY_TOKEN"))
 }
 ```
 
@@ -114,14 +115,27 @@ JARs, Gradle metadata, signatures, and checksums directly through Gradle's Maven
 `publishSnapshot` requires `snapshotRepositoryUrl`. The local-only `prepareSnapshot` and
 `prepareRelease` tasks do not require a remote provider.
 
-The same settings can be supplied on the command line or in `gradle.properties`, which is
-especially useful for nested builds:
+Gradle can supply credential values from any provider. For example, a build can use Gradle
+properties instead of environment variables:
+
+```kotlin
+easyPublishing {
+    username.set(providers.gradleProperty("publishingUsername"))
+    password.set(providers.gradleProperty("publishingPassword"))
+    signingKey.set(providers.gradleProperty("publishingSigningKey"))
+    signingPassword.set(providers.gradleProperty("publishingSigningPassword"))
+}
+```
+
+Repository coordinates and URLs also have `easyPublishing.*` Gradle-property conventions:
 
 ```properties
 easyPublishing.groupId=com.example.library
 easyPublishing.version=1.2.3-SNAPSHOT
 easyPublishing.snapshotRepositoryUrl=https://packages.example.com/maven/snapshots
 easyPublishing.releaseRepositoryUrl=https://packages.example.com/maven/releases
-easyPublishing.usernameEnvironmentVariable=MAVEN_REPOSITORY_USERNAME
-easyPublishing.passwordEnvironmentVariable=MAVEN_REPOSITORY_TOKEN
 ```
+
+Each nested build configures its own credential providers. EasyPublishing propagates coordinates
+and repository settings to nested builds, but does not add its credential or signing values to
+the nested GradleBuild project-property map.

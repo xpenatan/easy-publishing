@@ -258,10 +258,9 @@ class EasyPublishingPluginFunctionalTest {
 
             easyPublishing {
                 releaseRepositoryUrl = 'https://central.sonatype.com'
-                usernameEnvironmentVariable = 'CENTRAL_PORTAL_USERNAME'
-                passwordEnvironmentVariable = 'CENTRAL_PORTAL_PASSWORD'
-                signingKeyEnvironmentVariable = 'SIGNING_KEY'
-                signingPasswordEnvironmentVariable = 'SIGNING_PASSWORD'
+                username.set(providers.provider { 'test-user' })
+                password.set(providers.provider { 'test-password' })
+                requireSigningForUpload = false
             }
             """,
             java.nio.file.StandardOpenOption.APPEND
@@ -273,6 +272,28 @@ class EasyPublishingPluginFunctionalTest {
         assertTrue(result.getOutput().contains(":uploadReleaseToMavenCentral SKIPPED"));
         assertTrue(result.getOutput().contains(":publishRelease SKIPPED"));
         assertFalse(result.getOutput().contains("ToEasyPublishingReleaseRepository"));
+    }
+
+    @Test
+    void requiresDirectSigningValuesForCentralPortalUpload() throws IOException {
+        writeProject("1.2.3");
+        Files.writeString(
+            new File(projectDir, "build.gradle").toPath(),
+            """
+
+            easyPublishing {
+                releaseRepositoryUrl = 'https://central.sonatype.com'
+                username = 'test-user'
+                password = 'test-password'
+            }
+            """,
+            java.nio.file.StandardOpenOption.APPEND
+        );
+
+        BuildResult result = runner("publishRelease").buildAndFail();
+
+        assertTrue(result.getOutput().contains("easyPublishing.signingKey must be configured"));
+        assertFalse(result.getOutput().contains("environment variable"));
     }
 
     @Test

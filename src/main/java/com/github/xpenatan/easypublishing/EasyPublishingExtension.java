@@ -51,22 +51,10 @@ public abstract class EasyPublishingExtension {
         getReleaseRepositoryUrl().convention(
             project.getProviders().gradleProperty("easyPublishing.releaseRepositoryUrl").orElse("")
         );
-        getUsernameEnvironmentVariable().convention(
-            project.getProviders().gradleProperty("easyPublishing.usernameEnvironmentVariable")
-                .orElse("")
-        );
-        getPasswordEnvironmentVariable().convention(
-            project.getProviders().gradleProperty("easyPublishing.passwordEnvironmentVariable")
-                .orElse("")
-        );
-        getSigningKeyEnvironmentVariable().convention(
-            project.getProviders().gradleProperty("easyPublishing.signingKeyEnvironmentVariable")
-                .orElse("")
-        );
-        getSigningPasswordEnvironmentVariable().convention(
-            project.getProviders().gradleProperty("easyPublishing.signingPasswordEnvironmentVariable")
-                .orElse("")
-        );
+        getUsername().convention("");
+        getPassword().convention("");
+        getSigningKey().convention("");
+        getSigningPassword().convention("");
         getAllowInsecureProtocol().convention(
             project.getProviders().gradleProperty("easyPublishing.allowInsecureProtocol")
                 .map(Boolean::parseBoolean)
@@ -140,13 +128,17 @@ public abstract class EasyPublishingExtension {
     /** Required by publishRelease. Maven Central URLs use its Portal API; other URLs use Maven publishing. */
     public abstract Property<String> getReleaseRepositoryUrl();
 
-    public abstract Property<String> getUsernameEnvironmentVariable();
+    /** Repository username value. The build decides how this value is supplied. */
+    public abstract Property<String> getUsername();
 
-    public abstract Property<String> getPasswordEnvironmentVariable();
+    /** Repository password or token value. The build decides how this value is supplied. */
+    public abstract Property<String> getPassword();
 
-    public abstract Property<String> getSigningKeyEnvironmentVariable();
+    /** ASCII-armored in-memory PGP private key value. */
+    public abstract Property<String> getSigningKey();
 
-    public abstract Property<String> getSigningPasswordEnvironmentVariable();
+    /** Password for the configured in-memory PGP private key. */
+    public abstract Property<String> getSigningPassword();
 
     public abstract Property<Boolean> getAllowInsecureProtocol();
 
